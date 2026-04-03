@@ -82,9 +82,17 @@ def safe_path(relative_path: str) -> Optional[Path]:
     """Prevent path traversal attacks."""
     try:
         full = (Path(WORKSPACE_ROOT) / relative_path).resolve()
-        # Use the pre-computed resolved root to avoid repeated Path.resolve() calls
-        if not str(full).startswith(WORKSPACE_ROOT_RESOLVED):
-            return None
+        # Use the pre-computed resolved root to avoid repeated Path.resolve() calls,
+        # but perform a path-aware containment check instead of simple string prefix matching.
+        workspace_root_path = Path(WORKSPACE_ROOT_RESOLVED)
+        try:
+            # Python 3.9+: use is_relative_to for robust containment checking
+            if not full.is_relative_to(workspace_root_path):
+                return None
+        except AttributeError:
+            # Fallback for Python < 3.9: use os.path.commonpath
+            if os.path.commonpath([str(full), str(workspace_root_path)]) != str(workspace_root_path):
+                return None
         return full
     except Exception:
         return None
